@@ -1,7 +1,8 @@
 package cn.wx.proxy.handler;
 
-import io.vertx.core.Vertx;
-import io.vertx.core.net.NetSocket;
+
+import io.vertx.mutiny.core.Vertx;
+import io.vertx.mutiny.core.net.NetSocket;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -26,8 +27,8 @@ public class SocketTunnel {
 
   private void init() {
 
-    this.clientSocket.closeHandler(v -> remoteSocket.close());
-    this.remoteSocket.closeHandler(v -> clientSocket.close());
+    this.clientSocket.closeHandler(() -> remoteSocket.close());
+    this.remoteSocket.closeHandler(() -> clientSocket.close());
 
     // client >>> remote
     this.clientSocket.handler(buff -> {

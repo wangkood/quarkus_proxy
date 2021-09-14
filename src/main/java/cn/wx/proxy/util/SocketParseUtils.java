@@ -1,7 +1,7 @@
 package cn.wx.proxy.util;
 
 import cn.wx.proxy.contant.SocketParams;
-import io.vertx.core.net.SocketAddress;
+import io.vertx.mutiny.core.net.SocketAddress;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
