@@ -27,18 +27,18 @@ public class SocketTunnel {
 
   private void init() {
 
-    this.clientSocket.closeHandler(() -> remoteSocket.close());
-    this.remoteSocket.closeHandler(() -> clientSocket.close());
+    this.clientSocket.closeHandler(() -> remoteSocket.close().subscribe().with(v -> {}));
+    this.remoteSocket.closeHandler(() -> clientSocket.close().subscribe().with(v -> {}));
 
     // client >>> remote
     this.clientSocket.handler(buff -> {
       log.info("{} {} >> {}", "Send", clientSocket.remoteAddress(), remoteSocket.remoteAddress());
-      remoteSocket.write(buff);
+      remoteSocket.write(buff).subscribe().with(v -> {});
     });
     // remote >>> client
     this.remoteSocket.handler(buff -> {
       log.info("{} {} << {}", "Rev", clientSocket.remoteAddress(), remoteSocket.remoteAddress());
-      clientSocket.write(buff);
+      clientSocket.write(buff).subscribe().with(v -> {});
     });
   }
 

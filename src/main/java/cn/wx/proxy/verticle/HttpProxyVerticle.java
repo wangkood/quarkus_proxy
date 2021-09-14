@@ -1,10 +1,10 @@
 package cn.wx.proxy.verticle;
 
-import cn.wx.proxy.config.HttpProxyConfig;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.mutiny.core.http.HttpClient;
 import io.vertx.mutiny.core.http.HttpServerRequest;
 import io.vertx.mutiny.core.net.NetClient;
@@ -66,8 +66,12 @@ public class HttpProxyVerticle extends AbstractVerticle {
         // 建立客户和目标服务器之间隧道
         clientReq.toNetSocket().subscribe().with(
           clientSocket -> {
-            clientSocket.handler(remoteSocket::write).closeHandler(remoteSocket::close);
-            remoteSocket.handler(clientSocket::write).closeHandler(clientSocket::close);
+            clientSocket
+              .handler(buf -> remoteSocket.write(buf).subscribe().with(v -> {}))
+              .closeHandler(() -> remoteSocket.close().subscribe().with(v -> {}));
+            remoteSocket
+              .handler(buf -> clientSocket.write(buf).subscribe().with(v -> {}))
+              .closeHandler(() -> clientSocket.close().subscribe().with(v -> {}));
             log.info(
               "Tunnel {}:{} ----> {}:{}",
               clientSocket.remoteAddress().host(),
@@ -110,7 +114,7 @@ public class HttpProxyVerticle extends AbstractVerticle {
             }
             remoteResp.body().subscribe().with(
               respBuff -> {
-                clientReq.response().setStatusCode(remoteResp.statusCode()).end(respBuff);
+                clientReq.response().setStatusCode(remoteResp.statusCode()).end(respBuff).subscribe().with(v -> {});
                 log.info("Proxy {} ----> {}", clientReq.remoteAddress(), clientReq.uri());
               }
             );

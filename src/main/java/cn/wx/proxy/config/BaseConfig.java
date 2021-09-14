@@ -6,6 +6,7 @@ import io.quarkus.runtime.StartupEvent;
 
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,12 +24,6 @@ import java.util.concurrent.TimeUnit;
 @ApplicationScoped
 public class BaseConfig {
 
-  @Inject
-  HttpProxyConfig httpProxyConfig;
-
-  @Inject
-  SocketProxyConfig socketProxyConfig;
-
 
   public void init(@Observes StartupEvent e, Vertx vertx) {
     vertx.setTimer(1000, i -> {
@@ -36,14 +31,16 @@ public class BaseConfig {
       vertx.deployVerticleAndForget(
         "cn.wx.proxy.verticle.HttpProxyVerticle",
         new DeploymentOptions()
-          .setInstances(10)
+          .setInstances(Runtime.getRuntime().availableProcessors() * 2)
           .setMaxWorkerExecuteTime(5)
           .setMaxWorkerExecuteTimeUnit(TimeUnit.MILLISECONDS)
       );
+
       // 部署socket代理
       vertx.deployVerticleAndForget(
-        new SocketProxyVerticle(socketProxyConfig),
+        "cn.wx.proxy.verticle.SocketProxyVerticle",
         new DeploymentOptions()
+          .setInstances(Runtime.getRuntime().availableProcessors() * 2)
           .setMaxWorkerExecuteTime(5)
           .setMaxWorkerExecuteTimeUnit(TimeUnit.MILLISECONDS)
       );

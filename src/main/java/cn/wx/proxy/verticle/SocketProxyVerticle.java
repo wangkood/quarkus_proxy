@@ -1,6 +1,5 @@
 package cn.wx.proxy.verticle;
 
-import cn.wx.proxy.config.SocketProxyConfig;
 import cn.wx.proxy.contant.SocketParams;
 import cn.wx.proxy.contant.SocketProxyStage;
 import cn.wx.proxy.handler.SocketTunnel;
@@ -28,24 +27,19 @@ import java.util.Set;
 @Slf4j
 public class SocketProxyVerticle extends AbstractVerticle {
 
-
   private NetClient netClient;
-
-  private final SocketProxyConfig config;
-
 
   @Override
   public Uni<Void> asyncStart() {
     netClient = vertx.createNetClient();
     return vertx.createNetServer()
       .connectHandler(socket -> {
-          System.out.println(socket.writeHandlerID());
-
           socket.handler(buff -> {
-            System.out.println(buff);
             SocketProxyStage stage = vertx.getOrCreateContext().get(socket.writeHandlerID() + ":stage");
             if (stage == null) {
-              handlerHandshake(vertx.getOrCreateContext(), socket, buff.getBytes());
+              handlerHandshake(vertx.getOrCreateContext(), socket, buff.getBytes()).subscribe().with(v -> {
+
+              });
             } else if (SocketProxyStage.MethodAuth.equals(stage)) {
               handlerMethodAuth(vertx.getOrCreateContext(), socket, buff);
             } else if (SocketProxyStage.Cmd.equals(stage)) {
@@ -54,8 +48,8 @@ public class SocketProxyVerticle extends AbstractVerticle {
           });
         }
       )
-      .listen(config.port())
-      .onItem().invoke(() -> log.info("socket 代理启功在端口 {}", config.port()))
+      .listen(1080)
+      .onItem().invoke(() -> log.info("socket 代理启功在端口 {}", 1080))
       .onFailure().invoke(t -> {
         throw new RuntimeException(t);
       })
@@ -70,29 +64,29 @@ public class SocketProxyVerticle extends AbstractVerticle {
    * @param socket  s
    * @param bytes   b
    */
-  private void handlerHandshake(Context context, NetSocket socket, byte[] bytes) {
+  private Uni<Void> handlerHandshake(Context context, NetSocket socket, byte[] bytes) {
     // 解析socket版本
     SocketParams.VER version = SocketParseUtils.parseVer(bytes);
     if (version == null) {
       socket.close();
-      return;
+      return Uni.createFrom().failure(new RuntimeException("无法解析版本"));
     }
 
     // 解析授权方式
     Set<SocketParams.METHOD> auths = SocketParseUtils.parseMethod(bytes);
     if (auths.contains(SocketParams.METHOD.None)) {
-      socket.write(Buffer.buffer()
+      context.put(socket.writeHandlerID() + ":stage", SocketProxyStage.Cmd);
+      return socket.write(Buffer.buffer()
         .appendByte(version.byteCode())
         .appendByte(SocketParams.METHOD.None.byteCode()));
-      context.put(socket.writeHandlerID() + ":stage", SocketProxyStage.Cmd);
     } else if (auths.contains(SocketParams.METHOD.Passwd)) {
-      socket.write(Buffer.buffer()
+      context.put(socket.writeHandlerID() + ":stage", SocketProxyStage.MethodAuth);
+      return socket.write(Buffer.buffer()
         .appendByte(version.byteCode())
         .appendByte(SocketParams.METHOD.Passwd.byteCode()));
-      context.put(socket.writeHandlerID() + ":stage", SocketProxyStage.MethodAuth);
     } else {
       // 不支持其他登录方式
-      socket.end(Buffer.buffer()
+      return socket.end(Buffer.buffer()
         .appendByte(version.byteCode())
         .appendByte(SocketParams.METHOD.NoAcceptable.byteCode()));
     }
@@ -179,8 +173,4 @@ public class SocketProxyVerticle extends AbstractVerticle {
     );
   }
 
-
-  public SocketProxyVerticle(SocketProxyConfig config) {
-    this.config = config;
-  }
 }
